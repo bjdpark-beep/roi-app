@@ -1,0 +1,25 @@
+{
+  "name": "로이아빠의 기업보험 영업관리시스템",
+  "short_name": "영업관리",
+  "description": "메리츠화재 기업보험 영업관리 앱",
+  "start_url": "/roi-app/",
+  "scope": "/roi-app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FB3B1E",
+  "theme_color": "#FB3B1E",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
