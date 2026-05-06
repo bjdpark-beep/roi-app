@@ -602,6 +602,8 @@ function loadFromGAS(){
     if(res&&res.success){
       // 보험DB → 앱 data 형식으로 변환
       data = (res.insurance||[]).map(function(r){
+        // 만기일에서 -1년으로 UY 계산
+        var uy2 = r.expiry ? (parseInt(r.expiry.substr(0,4)) - 1) : (r.year || '');
         return {
           id: r.rowIndex,
           company: r.company,
@@ -616,7 +618,7 @@ function loadFromGAS(){
           hist: r.hist||[],
           date: r.date||'',
           rowIndex: r.rowIndex,
-          year: r.year
+          year: uy2
         };
       });
       renderHome();
@@ -731,6 +733,8 @@ setTimeout(function(){
       if(res&&res.success){
         // 보험DB → 계약알림
         data=(res.insurance||[]).map(function(r){
+          // 만기일에서 -1년으로 UY 계산
+          var uy = r.expiry ? (parseInt(r.expiry.substr(0,4)) - 1) : (r.year || '');
           return {
             id:r.rowIndex,
             company:r.company,
@@ -745,7 +749,7 @@ setTimeout(function(){
             hist:r.hist||[],
             date:r.date||'',
             rowIndex:r.rowIndex,
-            year:r.year
+            year:uy
           };
         });
 
