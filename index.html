@@ -573,12 +573,13 @@ function showLoading(msg){document.getElementById('loading-msg').textContent=msg
 function hideLoading(){document.getElementById('loading-overlay').classList.remove('show');}
 
 // UY 계산 (만기년도 - 1)
-function getUY(expiry, year) {
+function getUY(expiry, year, type) {
   // 구글 시트에서 온 경우 year 필드 사용
   if(year) return 'UY' + year;
-  // 직접 입력한 경우 만기일에서 계산
   if(!expiry) return '';
   var y = parseInt(expiry.substr(0,4));
+  // 신규 → 만기년도 그대로, 갱신 → 만기년도 -1
+  if(type === 'renewal_new') return 'UY' + y;
   return 'UY' + (y - 1);
 }
 
@@ -650,7 +651,8 @@ function loadFromGAS(){
       // 보험DB → 앱 data 형식으로 변환
       data = (res.insurance||[]).map(function(r){
         // 만기일에서 -1년으로 UY 계산
-        var uy2 = r.expiry ? (parseInt(r.expiry.substr(0,4)) - 1) : (r.year || '');
+        var uyBase2 = r.expiry ? parseInt(r.expiry.substr(0,4)) : 0;
+        var uy2 = uyBase2 ? (r.type==='renewal_new' ? uyBase2 : uyBase2-1) : (r.year||'');
         return {
           id: r.rowIndex,
           company: r.company,
@@ -740,7 +742,8 @@ function renderAlerts(){var filter=currentAlertFilter;var filtered=data.filter(f
   // 전체 탭 + 검색 없음 → UY 그룹핑
   var by={};
   top10.forEach(function(d){
-    var yr=d.year?String(d.year):(d.expiry?String(parseInt(d.expiry.substr(0,4))-1):'미정');
+    var yrBase=d.expiry?parseInt(d.expiry.substr(0,4)):0;
+    var yr=d.year?String(d.year):(yrBase?(d.type==='renewal_new'?String(yrBase):String(yrBase-1)):'미정');
     if(!by[yr])by[yr]=[];
     by[yr].push(d);
   });
@@ -763,7 +766,8 @@ function addHistItem(){var v=document.getElementById('hist-new-input').value.tri
 function delHistItem(i){editingHistItems.splice(i,1);renderHistEdit();}
 function closeModal(e){if(e.target===document.getElementById('modal-bg'))closeModalBtn();}
 function closeModalBtn(){document.getElementById('modal-bg').classList.remove('open');}
-function saveEntry(){var company=document.getElementById('f-company').value.trim();if(!company){alert('업체명을 입력해주세요');return;}var uy=curUY();var rIns=document.getElementById('f-rinsurer').value.trim();var rPrem=parseWon(document.getElementById('f-rpremium').value);var rInstype=document.getElementById('f-rinstype').value.trim();var rHandler=document.getElementById('f-rhandler').value.trim();var hasRenew=rIns||rPrem||rInstype||rHandler;var existing=editingId?data.find(function(x){return x.id===editingId;}):null;var renewHistory=existing?(existing.renewHistory||[]).slice():[];var newInsurer=document.getElementById('f-insurer').value.trim()||'-';var newHandler=document.getElementById('f-handler').value.trim()||'-';var newInstype=document.getElementById('f-instype').value.trim()||'미입력';var newPremium=parseWon(document.getElementById('f-premium').value);var newExpiry=document.getElementById('f-expiry').value;var newType=document.getElementById('f-type').value;if(hasRenew){var isManual=document.getElementById('expiry-manual').checked;var rExpiry='';if(isManual){rExpiry=document.getElementById('f-rexpiry').value;if(!rExpiry){alert('갱신 만기일을 직접 입력해주세요');return;}}else{rExpiry=addOneYear(newExpiry);}var rec={uy:uy,insurer:rIns||newInsurer,premium:rPrem||newPremium,instype:rInstype||newInstype,handler:rHandler||newHandler,expiry:rExpiry};var idx=renewHistory.findIndex(function(r){return r.uy===uy;});if(idx>=0)renewHistory[idx]=rec;else renewHistory.unshift(rec);newInsurer=rIns||newInsurer;newHandler=rHandler||newHandler;newInstype=rInstype||newInstype;newPremium=rPrem||newPremium;newExpiry=rExpiry;if(newType==='renewal_new')newType='renewal_existing';}var uyYear = newExpiry ? (parseInt(newExpiry.substr(0,4)) - 1) : curUY();
+function saveEntry(){var company=document.getElementById('f-company').value.trim();if(!company){alert('업체명을 입력해주세요');return;}var uy=curUY();var rIns=document.getElementById('f-rinsurer').value.trim();var rPrem=parseWon(document.getElementById('f-rpremium').value);var rInstype=document.getElementById('f-rinstype').value.trim();var rHandler=document.getElementById('f-rhandler').value.trim();var hasRenew=rIns||rPrem||rInstype||rHandler;var existing=editingId?data.find(function(x){return x.id===editingId;}):null;var renewHistory=existing?(existing.renewHistory||[]).slice():[];var newInsurer=document.getElementById('f-insurer').value.trim()||'-';var newHandler=document.getElementById('f-handler').value.trim()||'-';var newInstype=document.getElementById('f-instype').value.trim()||'미입력';var newPremium=parseWon(document.getElementById('f-premium').value);var newExpiry=document.getElementById('f-expiry').value;var newType=document.getElementById('f-type').value;if(hasRenew){var isManual=document.getElementById('expiry-manual').checked;var rExpiry='';if(isManual){rExpiry=document.getElementById('f-rexpiry').value;if(!rExpiry){alert('갱신 만기일을 직접 입력해주세요');return;}}else{rExpiry=addOneYear(newExpiry);}var rec={uy:uy,insurer:rIns||newInsurer,premium:rPrem||newPremium,instype:rInstype||newInstype,handler:rHandler||newHandler,expiry:rExpiry};var idx=renewHistory.findIndex(function(r){return r.uy===uy;});if(idx>=0)renewHistory[idx]=rec;else renewHistory.unshift(rec);newInsurer=rIns||newInsurer;newHandler=rHandler||newHandler;newInstype=rInstype||newInstype;newPremium=rPrem||newPremium;newExpiry=rExpiry;if(newType==='renewal_new')newType='renewal_existing';}var uyBase3 = newExpiry ? parseInt(newExpiry.substr(0,4)) : curUY();
+  var uyYear = (newType==='renewal_new') ? uyBase3 : uyBase3-1;
   var entry={id:editingId||nextId++,company:company,biznum:document.getElementById('f-biznum').value.trim(),insurer:newInsurer,handler:newHandler,type:newType,instype:newInstype,premium:newPremium,expiry:newExpiry,renewHistory:renewHistory,hist:editingHistItems.slice(),date:today(),year:uyYear};if(editingId){var ei=data.findIndex(function(x){return x.id===editingId;});if(ei>=0)data[ei]=entry;}else data.push(entry);closeModalBtn();renderHome();if(document.getElementById('tab-alerts').classList.contains('active'))renderAlerts();saveToGAS(entry,function(ok){showToast(ok?'✅ 저장 완료 (구글 시트 동기화됨)':'✅ 저장 완료');});}
 function setInfoCat(cat,btn){currentInfoCat=cat;document.querySelectorAll('.info-cat-btn').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');renderInfoList();}
 function renderInfoList(){var filtered=infoData.filter(function(d){return d.cat===currentInfoCat;});if(filtered.length===0){document.getElementById('info-list').innerHTML='<div style="text-align:center;padding:28px;color:var(--color-text-secondary);font-size:12px;">등록된 정보가 없습니다</div>';return;}var html='';filtered.slice(0,10).forEach(function(d){var preview=d.hist.length>0?d.hist[d.hist.length-1].text:'기록 없음';html+='<div class="info-item-card" onclick="openInfoDetail('+d.id+')">'+'<div class="info-item-top"><span class="info-item-name">'+d.name+'</span><span style="display:flex;gap:4px;align-items:center;"><span style="font-size:10px;color:var(--color-text-secondary);">'+d.hist.length+'건</span><button onclick="openInfoEditModal('+d.id+',event)" style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);cursor:pointer;">수정</button><button onclick="delInfoEntry('+d.id+',event)" style="font-size:10px;padding:1px 6px;border-radius:4px;background:#FAECE7;border:0.5px solid #F5C4B3;color:#993C1D;cursor:pointer;">삭제</button></span></div><div class="info-item-preview">최근: '+preview+'</div></div>';});document.getElementById('info-list').innerHTML=html;}
@@ -809,7 +813,8 @@ setTimeout(function(){
         // 보험DB → 계약알림
         data=(res.insurance||[]).map(function(r){
           // 만기일에서 -1년으로 UY 계산
-          var uy = r.expiry ? (parseInt(r.expiry.substr(0,4)) - 1) : (r.year || '');
+          var uyBase = r.expiry ? parseInt(r.expiry.substr(0,4)) : 0;
+          var uy = uyBase ? (r.type==='renewal_new' ? uyBase : uyBase-1) : (r.year||'');
           return {
             id:r.rowIndex,
             company:r.company,
