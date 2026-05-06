@@ -573,6 +573,34 @@ function showLoading(msg){document.getElementById('loading-msg').textContent=msg
 function hideLoading(){document.getElementById('loading-overlay').classList.remove('show');}
 
 // UY 계산 (만기년도 - 1)
+
+// ── 초성 검색 ─────────────────────────────────────────────
+function getChosung(str) {
+  var CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  var result = '';
+  for(var i=0; i<str.length; i++){
+    var code = str.charCodeAt(i) - 0xAC00;
+    if(code >= 0 && code <= 11171){
+      result += CHO[Math.floor(code/588)];
+    } else {
+      result += str[i];
+    }
+  }
+  return result;
+}
+
+function matchSearch(company, keyword) {
+  if(!keyword) return true;
+  var kw = keyword.toLowerCase();
+  var co = company.toLowerCase();
+  // 1. 일반 포함 검색
+  if(co.indexOf(kw) >= 0) return true;
+  // 2. 초성 검색
+  var choComp = getChosung(company);
+  var choKw = getChosung(keyword);
+  if(choComp.indexOf(choKw) >= 0) return true;
+  return false;
+}
 function getUY(expiry, year, type) {
   // 구글 시트에서 온 경우 year 필드 사용
   if(year) return 'UY' + year;
@@ -735,7 +763,7 @@ function renderAlerts(){var filter=currentAlertFilter;var filtered=data.filter(f
   }
   // 검색 필터 (전체 탭에서만)
   if(searchKeyword&&filter==='all'){
-    return d.company&&d.company.toLowerCase().indexOf(searchKeyword.toLowerCase())>=0;
+    return d.company&&matchSearch(d.company, searchKeyword);
   }
   return true;
 }).sort(function(a,b){return daysUntil(a.expiry)-daysUntil(b.expiry);});if(filtered.length===0){document.getElementById('alerts-top10').innerHTML='<div style="text-align:center;padding:28px;color:var(--color-text-secondary);font-size:12px;">해당 항목이 없습니다</div>';document.getElementById('alerts-scroll-box').style.display='none';return;}var top10=filtered.slice(0,10),rest=filtered.slice(10),nh='';if(filter==='all'&&!searchKeyword){
