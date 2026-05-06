@@ -208,6 +208,7 @@ body{background:#f0f0f0;display:flex;justify-content:center;min-height:100vh;fon
 .confirm-box p{font-size:13px;color:var(--color-text-primary);margin-bottom:16px;line-height:1.5;}
 .confirm-btns{display:flex;gap:8px;}
 .confirm-btns button{flex:1;padding:9px;border-radius:var(--border-radius-md);font-size:13px;cursor:pointer;}
+#alerts-top10{max-height:calc(100vh - 200px);overflow-y:auto;}
 </style>
 </head>
 <body>
@@ -338,17 +339,7 @@ body{background:#f0f0f0;display:flex;justify-content:center;min-height:100vh;fon
 <div class="section" id="tab-alerts">
   <div class="alerts-header">
     <div class="alerts-filter-scroll" id="alert-filter-row"></div>
-    <button class="add-btn" onclick="toggleSearch()" id="search-btn" style="background:var(--color-background-secondary);color:var(--color-text-primary);border:1px solid var(--color-border-secondary);">🔍</button>
     <button class="add-btn" onclick="openAddModal()">+추가</button>
-  </div>
-  <div id="search-box" style="display:none;margin-bottom:10px;">
-    <div style="display:flex;gap:6px;align-items:center;">
-      <input type="text" id="search-input" placeholder="업체명 검색..." 
-        style="flex:1;font-size:12px;padding:8px 10px;border-radius:var(--border-radius-md);border:1px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);"
-        oninput="onSearchInput(this.value)" onkeyup="onSearchInput(this.value)">
-      <button onclick="clearSearch()" style="padding:7px 10px;border-radius:var(--border-radius-md);background:#FAECE7;color:#993C1D;border:0.5px solid #F5C4B3;font-size:11px;cursor:pointer;">✕ 초기화</button>
-    </div>
-    <div id="search-result-label" style="font-size:11px;color:var(--color-text-secondary);margin-top:5px;padding-left:2px;"></div>
   </div>
   <div id="alerts-top10"></div>
   <div id="alerts-scroll-box" class="scroll-box" style="display:none;"><div class="scroll-box-label" id="alerts-scroll-label"></div><div id="alerts-scroll-inner"></div></div>
@@ -756,36 +747,63 @@ function closeDetailBtn(){document.getElementById('detail-overlay').classList.re
 function renderHome(){var now=new Date(),cm=now.getMonth(),cy=now.getFullYear(),mn=cm+1,ml=mn+'월';document.getElementById('label-thismonth').textContent='이번달 '+ml+' 만기';document.getElementById('motto-month-label').textContent=ml+'의 각오';document.getElementById('label-month-premium').textContent=ml+' 총보험료';document.getElementById('motto-display').textContent=mottoData[String(mn)]||'이번달 각오를 입력해보세요';var nc=data.filter(function(d){if(!d.expiry||d.type!=='renewal_new')return false;var e=new Date(d.expiry);return e.getFullYear()===cy&&e.getMonth()===cm;}).length;var rc=data.filter(function(d){if(!d.expiry||d.type!=='renewal_existing')return false;var e=new Date(d.expiry);return e.getFullYear()===cy&&e.getMonth()===cm;}).length;document.getElementById('home-new-count').textContent=nc+'건';document.getElementById('home-renewal-count').textContent=rc+'건';var in25=data.filter(function(d){var days=daysUntil(d.expiry);return days>=0&&days<=25;}).length;var mp=data.reduce(function(s,d){if(!d.expiry)return s;var e=new Date(d.expiry);if(e.getFullYear()!==cy||e.getMonth()!==cm)return s;return s+effectivePremium(d);},0);var tp=data.reduce(function(s,d){return s+effectivePremium(d);},0);document.getElementById('home-25d').textContent=in25+'건';document.getElementById('home-total').textContent=data.length+'건';document.getElementById('home-month-premium').textContent=fmtWon(mp);document.getElementById('home-total-premium').textContent=fmtWon(tp);var urgent=data.filter(function(d){var days=daysUntil(d.expiry);return days>=0&&days<=25&&isActive(d.type);}).sort(function(a,b){return daysUntil(a.expiry)-daysUntil(b.expiry);});var badge=document.getElementById('urgent-count-badge');if(urgent.length>0){badge.textContent='총 '+urgent.length+'건';badge.style.display='inline';}else{badge.style.display='none';}var top3='';if(urgent.length===0){top3='<div style="font-size:12px;color:var(--color-text-secondary);padding:20px 0;text-align:center;">25일 이내 만기 업체가 없습니다</div>';}else{urgent.slice(0,3).forEach(function(d){top3+=makeHomeCard(d);});}document.getElementById('home-top3').innerHTML=top3;var rest=urgent.length-3,eb=document.getElementById('expand-btn');if(rest>0){eb.style.display='flex';eb.setAttribute('data-rest',rest);document.getElementById('expand-label').textContent=urgentExpanded?'접기':'더보기 '+rest+'건';document.getElementById('expand-arrow').classList.toggle('open',urgentExpanded);var mid='';urgent.slice(3,10).forEach(function(d){mid+=makeHomeCard(d);});document.getElementById('home-expand-4to10').innerHTML=mid;var over=urgent.slice(10),sb=document.getElementById('home-scroll-box');if(over.length>0){var sh='';over.forEach(function(d){sh+=makeHomeCard(d);});document.getElementById('home-scroll-inner').innerHTML=sh;document.getElementById('home-scroll-label').textContent='11번째 이후 '+over.length+'건';sb.style.display='block';}else sb.style.display='none';document.getElementById('home-expanded').style.display=urgentExpanded?'block':'none';}else{eb.style.display='none';document.getElementById('home-expanded').style.display='none';}}
 function buildAlertFilters(){var now=new Date(),cm=now.getMonth()+1,cy=now.getFullYear();var html='<button class="filter-btn active-all" onclick="setAlertFilter(\'all\',this)">전체</button>';for(var i=0;i<4;i++){var m=((cm-1+i)%12)+1,y=cy+Math.floor((cm-1+i)/12);var key=y+'-'+pad(m);html+='<button class="filter-btn" onclick="setAlertFilter(\''+key+'\',this)">'+m+'월'+(i===0?' ★':'')+'</button>';}document.getElementById('alert-filter-row').innerHTML=html;}
 function setAlertFilter(key,btn){currentAlertFilter=key;document.querySelectorAll('#alert-filter-row .filter-btn').forEach(function(b){b.classList.remove('active-all','active-month');});btn.classList.add(key==='all'?'active-all':'active-month');renderAlerts();}
-function renderAlerts(){var filter=currentAlertFilter;var filtered=data.filter(function(d){
-  // 월 필터
-  if(filter!=='all'){
-    if(!d.expiry)return false;
+function renderAlerts(){
+  var filter=currentAlertFilter;
+  var filtered=data.filter(function(d){
+    if(filter==='all') return true;
+    if(!d.expiry) return false;
     var p=filter.split('-'),fy=parseInt(p[0]),fm=parseInt(p[1])-1;
     var e=new Date(d.expiry);
-    if(e.getFullYear()!==fy||e.getMonth()!==fm)return false;
-  }
-  // 검색 필터 (전체 탭에서만)
-  if(searchKeyword&&filter==='all'){
-    return d.company&&matchSearch(d.company, searchKeyword);
-  }
-  return true;
-}).sort(function(a,b){return daysUntil(a.expiry)-daysUntil(b.expiry);});if(filtered.length===0){document.getElementById('alerts-top10').innerHTML='<div style="text-align:center;padding:28px;color:var(--color-text-secondary);font-size:12px;">해당 항목이 없습니다</div>';document.getElementById('alerts-scroll-box').style.display='none';return;}var top10=filtered.slice(0,10),rest=filtered.slice(10),nh='';if(filter==='all'&&!searchKeyword){
-  // 전체 탭 + 검색 없음 → UY 그룹핑
-  var by={};
-  top10.forEach(function(d){
-    var yrBase=d.expiry?parseInt(d.expiry.substr(0,4)):0;
-    var yr=d.year?String(d.year):(yrBase?(d.type==='renewal_new'?String(yrBase):String(yrBase-1)):'미정');
-    if(!by[yr])by[yr]=[];
-    by[yr].push(d);
+    return e.getFullYear()===fy&&e.getMonth()===fm;
   });
-  Object.keys(by).sort(function(a,b){return b-a;}).forEach(function(yr){
-    nh+='<div class="year-label">UY'+yr+'</div>';
-    by[yr].forEach(function(d){nh+=makeAlertCard(d);});
-  });
-} else {
-  // 검색 중이거나 월 필터 → 그냥 나열
-  top10.forEach(function(d){nh+=makeAlertCard(d);});
-}document.getElementById('alerts-top10').innerHTML=nh;var sb=document.getElementById('alerts-scroll-box');if(rest.length>0){var sh='';rest.forEach(function(d){sh+=makeAlertCard(d);});document.getElementById('alerts-scroll-inner').innerHTML=sh;document.getElementById('alerts-scroll-label').textContent='11번째 이후 '+rest.length+'건';sb.style.display='block';}else sb.style.display='none';}
+
+  if(filtered.length===0){
+    document.getElementById('alerts-top10').innerHTML='<div style="text-align:center;padding:28px;color:var(--color-text-secondary);font-size:12px;">해당 항목이 없습니다</div>';
+    document.getElementById('alerts-scroll-box').style.display='none';
+    return;
+  }
+
+  var nh='';
+
+  if(filter==='all'){
+    // 전체탭: UY 높은순 그룹핑 → 각 그룹 내 업체명 가나다순
+    var by={};
+    filtered.forEach(function(d){
+      var yrBase=d.expiry?parseInt(d.expiry.substr(0,4)):0;
+      var yr=d.year?String(d.year):(yrBase?(d.type==='renewal_new'?String(yrBase):String(yrBase-1)):'미정');
+      if(!by[yr])by[yr]=[];
+      by[yr].push(d);
+    });
+    // UY 높은순 정렬
+    Object.keys(by).sort(function(a,b){return b-a;}).forEach(function(yr){
+      // 각 그룹 내 업체명 가나다순 정렬
+      by[yr].sort(function(a,b){
+        return (a.company||'').localeCompare(b.company||'','ko');
+      });
+      nh+='<div class="year-label">UY'+yr+'</div>';
+      by[yr].forEach(function(d){nh+=makeAlertCard(d);});
+    });
+    // 전체탭은 스크롤박스 숨김 (전체 표시)
+    document.getElementById('alerts-top10').innerHTML=nh;
+    document.getElementById('alerts-scroll-box').style.display='none';
+  } else {
+    // 월 필터: 만기일순 정렬
+    filtered.sort(function(a,b){return daysUntil(a.expiry)-daysUntil(b.expiry);});
+    var top10=filtered.slice(0,10),rest=filtered.slice(10);
+    top10.forEach(function(d){nh+=makeAlertCard(d);});
+    document.getElementById('alerts-top10').innerHTML=nh;
+    var sb=document.getElementById('alerts-scroll-box');
+    if(rest.length>0){
+      var sh='';
+      rest.forEach(function(d){sh+=makeAlertCard(d);});
+      document.getElementById('alerts-scroll-inner').innerHTML=sh;
+      document.getElementById('alerts-scroll-label').textContent='11번째 이후 '+rest.length+'건';
+      sb.style.display='block';
+    } else {
+      sb.style.display='none';
+    }
+  }
+}
 function exportCSV(){var headers=['업체명','사업자번호','보험사','취급자','구분','보종','보험료','보험만기일','갱신UY','갱신보험사','갱신보험료','갱신보종','갱신취급자','갱신만기','기타메모','입력일'];var rows=[headers.join(',')];data.forEach(function(d){var cr=getCurrentRenew(d);var memo=(d.hist||[]).map(function(h){return h.text;}).join(' | ');rows.push(['"'+(d.company||'')+'"',d.biznum||'',d.insurer||'',d.handler||'',d.type==='renewal_existing'?'갱신':'신규',d.instype||'',d.premium||0,d.expiry||'',cr?cr.uy:'',cr?cr.insurer:'',cr?cr.premium:'',cr?cr.instype:'',cr?cr.handler:'',cr?cr.expiry:'','"'+memo+'"',d.date||''].join(','));});var csv='\uFEFF'+rows.join('\n');var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='기업보험영업관리_'+today()+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);showToast('✅ CSV 내보내기 완료! ('+data.length+'건)');}
 function importCSV(event){var file=event.target.files[0];if(!file)return;var reader=new FileReader();reader.onload=function(e){var text=e.target.result;if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);var lines=text.split('\n').filter(function(l){return l.trim();});if(lines.length<2){showToast('❌ 데이터가 없습니다');return;}var newRecords=[],skipped=0;for(var i=1;i<lines.length;i++){var cols=parseCSVLine(lines[i]);if(cols.length<8||!cols[0])continue;var company=cols[0].replace(/^"|"$/g,'').trim();var expiry=cols[7]||'';if(!company)continue;var isDup=data.some(function(d){return d.company===company&&d.expiry===expiry;});if(isDup){skipped++;continue;}var rec={id:nextId++,company:company,biznum:cols[1]||'',insurer:cols[2]||'-',handler:cols[3]||'-',type:cols[4]==='신규'?'renewal_new':'renewal_existing',instype:cols[5]||'미입력',premium:parseInt(cols[6])||0,expiry:expiry,renewHistory:[],hist:[],date:today()};data.push(rec);newRecords.push(rec);}renderHome();if(document.getElementById('tab-alerts').classList.contains('active'))renderAlerts();renderDataStats();event.target.value='';if(getGasUrl()&&newRecords.length>0){bulkInsertToGAS(newRecords,function(added,skip){showToast('✅ '+newRecords.length+'건 추가 (중복 '+skipped+'건 제외) + 구글 시트 저장!');});}else{showToast('✅ '+newRecords.length+'건 추가! (중복 '+skipped+'건 제외)');}};reader.readAsText(file,'UTF-8');}
 function parseCSVLine(line){var result=[],cur='',inQ=false;for(var i=0;i<line.length;i++){var c=line[i];if(c==='"'){inQ=!inQ;}else if(c===','&&!inQ){result.push(cur);cur='';}else{cur+=c;}}result.push(cur);return result;}
