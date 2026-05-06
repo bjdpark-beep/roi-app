@@ -780,8 +780,8 @@ function renderAlerts(){
     Object.keys(by).sort(function(a,b){return b-a;}).forEach(function(yr){
       // 각 그룹 내 업체명 가나다순 정렬
       by[yr].sort(function(a,b){
-        var ca=(a.company||'').toLowerCase();
-        var cb=(b.company||'').toLowerCase();
+        var ca=String(a.company||'');
+        var cb=String(b.company||'');
         if(ca<cb)return -1;
         if(ca>cb)return 1;
         return 0;
@@ -842,7 +842,23 @@ function toggleExpand(){urgentExpanded=!urgentExpanded;document.getElementById('
 function toggleMottoEdit(){var disp=document.getElementById('motto-display'),edit=document.getElementById('motto-edit-area'),btn=document.querySelector('.motto-edit-btn');if(edit.style.display==='none'){document.getElementById('motto-input').value=disp.textContent;disp.style.display='none';edit.style.display='block';btn.textContent='취소';}else{disp.style.display='block';edit.style.display='none';btn.textContent='수정';}}
 function saveMotto(){var key=String(new Date().getMonth()+1),val=document.getElementById('motto-input').value.trim();if(!val)return;mottoData[key]=val;document.getElementById('motto-display').textContent=val;document.getElementById('motto-display').style.display='block';document.getElementById('motto-edit-area').style.display='none';document.querySelector('.motto-edit-btn').textContent='수정';}
 function renderDataStats(){var by={};data.forEach(function(d){var yr=d.date?d.date.substr(0,4):'미정';by[yr]=(by[yr]||0)+1;});var html='';Object.keys(by).sort(function(a,b){return b-a;}).forEach(function(yr){html+=yr+'년 입력: '+by[yr]+'건<br>';});var el=document.getElementById('data-stats');if(el)el.innerHTML=html+'전체 누적: '+data.length+'건';}
-function switchTab(name){var names=['home','alerts','info','settings'];document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',names[i]===name);});document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});document.getElementById('tab-'+name).classList.add('active');if(name==='alerts')renderAlerts();if(name==='info')renderInfoList();if(name==='settings')renderDataStats();}
+function switchTab(name){
+  var names=['home','alerts','info','settings'];
+  document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',names[i]===name);});
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='alerts'){
+    currentAlertFilter='all';
+    document.querySelectorAll('#alert-filter-row .filter-btn').forEach(function(b){
+      b.classList.remove('active-all','active-month');
+    });
+    var allBtn=document.querySelector('#alert-filter-row .filter-btn');
+    if(allBtn)allBtn.classList.add('active-all');
+    renderAlerts();
+  }
+  if(name==='info')renderInfoList();
+  if(name==='settings')renderDataStats();
+}
 
 // localStorage에서 GAS URL 복원
 var savedUrl = localStorage.getItem('gas_url');
