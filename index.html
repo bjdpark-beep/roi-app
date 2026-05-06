@@ -653,9 +653,11 @@ function saveGasUrl(){
   if(!url){showToast('❌ URL을 입력해주세요');return;}
   GAS_URL=url;
   localStorage.setItem('gas_url',url);
-  showToast('✅ GAS URL이 저장되었습니다!');
+  showToast('✅ GAS URL 저장! 데이터 불러오는 중...');
   document.getElementById('gas-status').className='gas-status ok';
-  document.getElementById('gas-status').textContent='✅ URL 저장됨 — 연결 테스트를 해보세요';
+  document.getElementById('gas-status').textContent='✅ URL 저장됨';
+  // 저장 즉시 데이터 불러오기
+  loadFromGAS();
 }
 function loadFromGAS(){
   var url=getGasUrl();
@@ -904,10 +906,12 @@ setTimeout(function(){
         infoData = Object.values(infoMap);
 
         renderHome();
+        renderAlerts();
+        renderInfoList();
         renderDataStats();
-        if(document.getElementById('tab-info').classList.contains('active'))renderInfoList();
         document.getElementById('gas-status').className='gas-status ok';
         document.getElementById('gas-status').textContent='✅ 연결 성공 (계약 '+data.length+'건 / 정보 '+infoData.length+'건)';
+        showToast('✅ 계약 '+data.length+'건 불러오기 완료!');
       }
     };
     var script=document.createElement('script');
