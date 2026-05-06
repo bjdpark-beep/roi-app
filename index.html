@@ -634,7 +634,26 @@ function loadFromGAS(){
   document.head.appendChild(script);
 }
 function testGasConnection(){loadFromGAS();}
-function saveToGAS(record,callback){var url=getGasUrl();if(!url){if(callback)callback(false);return;}fetch(url,{method:'POST',body:JSON.stringify({action:'save',record:record})}).then(function(r){return r.json();}).then(function(res){if(callback)callback(res.success);}).catch(function(){if(callback)callback(false);});}
+function saveToGAS(record,callback){
+  var url=getGasUrl();
+  if(!url){if(callback)callback(false);return;}
+  var cbName='gasSave_'+Date.now();
+  window[cbName]=function(res){
+    var s=document.getElementById('gas-save-script');
+    if(s)s.parentNode.removeChild(s);
+    delete window[cbName];
+    if(callback)callback(res&&res.success);
+  };
+  var data=encodeURIComponent(JSON.stringify({action:'saveInsurance',record:record}));
+  var script=document.createElement('script');
+  script.id='gas-save-script';
+  script.src=url+'?callback='+cbName+'&action=saveInsurance&data='+data+'&t='+Date.now();
+  script.onerror=function(){
+    delete window[cbName];
+    if(callback)callback(false);
+  };
+  document.head.appendChild(script);
+}
 function bulkInsertToGAS(records,callback){var url=getGasUrl();if(!url){if(callback)callback(0,0);return;}showLoading('구글 시트에 업로드 중...');fetch(url,{method:'POST',body:JSON.stringify({action:'bulkInsert',records:records})}).then(function(r){return r.json();}).then(function(res){hideLoading();if(callback)callback(res.added||0,res.skipped||0);}).catch(function(){hideLoading();if(callback)callback(0,0);});}
 
 function makeHomeCard(d){var days=daysUntil(d.expiry),redCls=isUrgentRed(d.expiry)?' urgent-red':'';return '<div class="uc'+redCls+'"><div class="uc-left"><div class="uc-company">'+d.company+'</div>'+(d.biznum?'<div class="uc-sub">'+d.biznum+'</div>':'')+'<div class="uc-sub">보험사: '+(d.insurer||'-')+' | 취급자: '+(d.handler||'-')+'</div><div class="uc-meta"><span class="uc-instype">'+d.instype+'</span><span>만기 '+fmtDate(d.expiry)+'</span><span>'+fmtWon(d.premium)+'</span></div></div><div class="uc-right">'+typeBadge(d.type)+dBadge(days)+'</div></div>';}
