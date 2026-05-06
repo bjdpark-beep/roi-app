@@ -370,7 +370,10 @@ body{background:#f0f0f0;display:flex;justify-content:center;min-height:100vh;fon
     <p>GAS 웹앱 URL을 입력하면 구글 시트와 동기화됩니다.</p>
     <input type="text" id="gas-url-input" class="gas-url-input" placeholder="https://script.google.com/macros/s/XXXXX/exec" oninput="onGasUrlChange()">
     <div id="gas-status" class="gas-status wait">⏳ URL 미입력</div>
-    <button class="settings-btn secondary" style="margin-top:8px;" onclick="testGasConnection()">🔄 연결 테스트 &amp; 데이터 불러오기</button>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <button class="settings-btn primary" style="flex:1;" onclick="saveGasUrl()">💾 URL 저장</button>
+      <button class="settings-btn secondary" style="flex:1;" onclick="testGasConnection()">🔄 연결 테스트</button>
+    </div>
   </div>
   <div class="settings-card">
     <h3>☁️ 데이터 동기화</h3>
@@ -560,7 +563,20 @@ function showLoading(msg){document.getElementById('loading-msg').textContent=msg
 function hideLoading(){document.getElementById('loading-overlay').classList.remove('show');}
 function setTodayLabel(){var d=new Date();document.getElementById('topbar-today').textContent='TODAY :  '+d.getFullYear()+'년 '+pad(d.getMonth()+1)+'월 '+pad(d.getDate())+'일';}
 function getGasUrl(){var inp=document.getElementById('gas-url-input');return(inp&&inp.value.trim())?inp.value.trim():GAS_URL;}
-function onGasUrlChange(){GAS_URL=document.getElementById('gas-url-input').value.trim();document.getElementById('gas-status').className='gas-status wait';document.getElementById('gas-status').textContent='⏳ 테스트 버튼으로 연결 확인하세요';}
+function onGasUrlChange(){
+  GAS_URL=document.getElementById('gas-url-input').value.trim();
+  document.getElementById('gas-status').className='gas-status wait';
+  document.getElementById('gas-status').textContent='⏳ 저장 버튼을 눌러 주소를 저장하세요';
+}
+function saveGasUrl(){
+  var url=document.getElementById('gas-url-input').value.trim();
+  if(!url){showToast('❌ URL을 입력해주세요');return;}
+  GAS_URL=url;
+  localStorage.setItem('gas_url',url);
+  showToast('✅ GAS URL이 저장되었습니다!');
+  document.getElementById('gas-status').className='gas-status ok';
+  document.getElementById('gas-status').textContent='✅ URL 저장됨 — 연결 테스트를 해보세요';
+}
 function loadFromGAS(){
   var url=getGasUrl();
   if(!url){showToast('❌ GAS URL을 먼저 입력해주세요');return;}
@@ -662,6 +678,14 @@ function saveMotto(){var key=String(new Date().getMonth()+1),val=document.getEle
 function renderDataStats(){var by={};data.forEach(function(d){var yr=d.date?d.date.substr(0,4):'미정';by[yr]=(by[yr]||0)+1;});var html='';Object.keys(by).sort(function(a,b){return b-a;}).forEach(function(yr){html+=yr+'년 입력: '+by[yr]+'건<br>';});var el=document.getElementById('data-stats');if(el)el.innerHTML=html+'전체 누적: '+data.length+'건';}
 function switchTab(name){var names=['home','alerts','info','settings'];document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',names[i]===name);});document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});document.getElementById('tab-'+name).classList.add('active');if(name==='alerts')renderAlerts();if(name==='info')renderInfoList();if(name==='settings')renderDataStats();}
 
+// localStorage에서 GAS URL 복원
+var savedUrl = localStorage.getItem('gas_url');
+if(savedUrl){
+  GAS_URL = savedUrl;
+  document.getElementById('gas-url-input').value = savedUrl;
+  document.getElementById('gas-status').className='gas-status ok';
+  document.getElementById('gas-status').textContent='✅ 저장된 URL 복원됨';
+}
 setTodayLabel();buildAlertFilters();renderHome();
 
 // 앱 시작시 자동으로 구글 시트 데이터 불러오기
