@@ -663,6 +663,76 @@ function renderDataStats(){var by={};data.forEach(function(d){var yr=d.date?d.da
 function switchTab(name){var names=['home','alerts','info','settings'];document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',names[i]===name);});document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});document.getElementById('tab-'+name).classList.add('active');if(name==='alerts')renderAlerts();if(name==='info')renderInfoList();if(name==='settings')renderDataStats();}
 
 setTodayLabel();buildAlertFilters();renderHome();
+
+// 앱 시작시 자동으로 구글 시트 데이터 불러오기
+setTimeout(function(){
+  if(GAS_URL){
+    showLoading('구글 시트 데이터 불러오는 중...');
+    var cbName='gasInit_'+Date.now();
+    window[cbName]=function(res){
+      hideLoading();
+      var s=document.getElementById('gas-init-script');
+      if(s)s.parentNode.removeChild(s);
+      delete window[cbName];
+      if(res&&res.success){
+        // 보험DB → 계약알림
+        data=(res.insurance||[]).map(function(r){
+          return {
+            id:r.rowIndex,
+            company:r.company,
+            biznum:r.biznum||'',
+            insurer:r.insurer||'-',
+            handler:r.handler||'-',
+            type:r.type||'renewal_existing',
+            instype:r.instype||'',
+            premium:r.premium||0,
+            expiry:r.expiry||'',
+            renewHistory:[],
+            hist:r.hist||[],
+            date:r.date||'',
+            rowIndex:r.rowIndex,
+            year:r.year
+          };
+        });
+
+        // 주요정보 → infoData로 변환
+        // GAS에서 오는 info 배열: [{cat, name, text, date, rowIndex}]
+        // 앱 형식: [{id, cat, name, hist:[{text, date}]}]
+        var infoRaw = res.info || [];
+        var infoMap = {};
+        infoRaw.forEach(function(r){
+          var key = r.cat + '||' + r.name;
+          if(!infoMap[key]){
+            infoMap[key] = {
+              id: r.rowIndex,
+              cat: r.cat,
+              name: r.name,
+              hist: []
+            };
+          }
+          if(r.text){
+            infoMap[key].hist.push({text: r.text, date: r.date||''});
+          }
+        });
+        infoData = Object.values(infoMap);
+
+        renderHome();
+        renderDataStats();
+        if(document.getElementById('tab-info').classList.contains('active'))renderInfoList();
+        document.getElementById('gas-status').className='gas-status ok';
+        document.getElementById('gas-status').textContent='✅ 연결 성공 (계약 '+data.length+'건 / 정보 '+infoData.length+'건)';
+      }
+    };
+    var script=document.createElement('script');
+    script.id='gas-init-script';
+    script.src=GAS_URL+'?callback='+cbName+'&t='+Date.now();
+    script.onerror=function(){
+      hideLoading();
+      delete window[cbName];
+    };
+    document.head.appendChild(script);
+  }
+}, 1000);
 </script>
 </body>
 </html>
