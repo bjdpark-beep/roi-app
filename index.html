@@ -698,12 +698,25 @@ function loadFromGAS(){
           year: uy2
         };
       });
+      // 주요정보 변환 (rowIndex 포함)
+      var infoRaw = res.info || [];
+      var iMap = {};
+      infoRaw.forEach(function(r){
+        var key = r.cat+'||'+r.name;
+        if(!iMap[key]){
+          iMap[key]={id:r.rowIndex, rowIndex:r.rowIndex, cat:r.cat, name:r.name, hist:[]};
+        }
+        if(r.text){iMap[key].hist.push({text:r.text, date:r.date||''});}
+      });
+      infoData = Object.values(iMap);
+
       renderHome();
-      if(document.getElementById('tab-alerts').classList.contains('active'))renderAlerts();
+      renderAlerts();
+      renderInfoList();
       renderDataStats();
       document.getElementById('gas-status').className='gas-status ok';
-      document.getElementById('gas-status').textContent='✅ 연결 성공 ('+data.length+'건 로드)';
-      showToast('✅ 구글 시트에서 '+data.length+'건 불러오기 완료!');
+      document.getElementById('gas-status').textContent='✅ 연결 성공 (계약 '+data.length+'건 / 정보 '+infoData.length+'건)';
+      showToast('✅ 구글 시트에서 계약 '+data.length+'건 불러오기 완료!');
     } else {
       document.getElementById('gas-status').className='gas-status err';
       document.getElementById('gas-status').textContent='❌ 오류';
@@ -980,35 +993,46 @@ function deleteEntry(){
   if(!editingId) return;
   var d = data.find(function(x){return x.id===editingId;});
   if(!d) return;
-  document.getElementById('confirm-msg').textContent='"'+d.company+'" 계약을 정말로 삭제하시겠습니까?';
+  // 삭제할 데이터 미리 저장
+  var delId = d.id;
+  var delRowIndex = d.rowIndex;
+  var delCompany = d.company;
+  document.getElementById('confirm-msg').textContent='"'+delCompany+'" 계약을 정말로 삭제하시겠습니까?';
   confirmCallback = function(){
     // 구글 시트에서도 삭제
-    if(d.rowIndex){
-      deleteFromGAS(d.rowIndex, 'insurance', function(ok){
+    if(delRowIndex){
+      deleteFromGAS(delRowIndex, 'insurance', function(ok){
         showToast(ok?'✅ 삭제 완료 ✓ 구글 시트 반영':'⚠️ 앱에서만 삭제됨');
       });
+    } else {
+      showToast('⚠️ rowIndex 없음 - 앱에서만 삭제됨');
     }
-    data = data.filter(function(x){return x.id!==editingId;});
+    data = data.filter(function(x){return x.id!==delId;});
     closeModalBtn();
     renderHome();
     renderAlerts();
   };
-  closeModalBtn();
+  // 모달 닫기 전에 confirm 열기
+  document.getElementById('modal-bg').classList.remove('open');
   document.getElementById('confirm-bg').classList.add('open');
 }
 function delInfoEntry(id,e){
   if(e)e.stopPropagation();
   var d=infoData.find(function(x){return x.id===id;});
   if(!d)return;
-  document.getElementById('confirm-msg').textContent='"'+d.name+'" 항목을 정말로 삭제하시겠습니까?';
+  var delId=d.id;
+  var delRowIndex=d.rowIndex;
+  var delName=d.name;
+  document.getElementById('confirm-msg').textContent='"'+delName+'" 항목을 정말로 삭제하시겠습니까?';
   confirmCallback=function(){
-    // 구글 시트에서도 삭제
-    if(d.rowIndex){
-      deleteFromGAS(d.rowIndex, 'info', function(ok){
+    if(delRowIndex){
+      deleteFromGAS(delRowIndex, 'info', function(ok){
         showToast(ok?'✅ 삭제 완료 ✓ 구글 시트 반영':'⚠️ 앱에서만 삭제됨');
       });
+    } else {
+      showToast('⚠️ rowIndex 없음 - 앱에서만 삭제됨');
     }
-    infoData=infoData.filter(function(x){return x.id!==id;});
+    infoData=infoData.filter(function(x){return x.id!==delId;});
     renderInfoList();
   };
   document.getElementById('confirm-bg').classList.add('open');
@@ -1091,6 +1115,7 @@ setTimeout(function(){
           if(!infoMap[key]){
             infoMap[key] = {
               id: r.rowIndex,
+              rowIndex: r.rowIndex,
               cat: r.cat,
               name: r.name,
               hist: []
