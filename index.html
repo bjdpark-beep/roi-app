@@ -890,7 +890,49 @@ function addInfoHistItem(){var v=document.getElementById('if-hist-input').value.
 function delInfoHistItem(i){editingInfoHistItems.splice(i,1);renderInfoHistEdit();}
 function closeInfoModal(e){if(e.target===document.getElementById('info-modal-bg'))closeInfoModalBtn();}
 function closeInfoModalBtn(){document.getElementById('info-modal-bg').classList.remove('open');}
-function saveInfoEntry(){var name=document.getElementById('if-name').value.trim();if(!name){alert('이름을 입력해주세요');return;}var entry={id:editingInfoId||nextInfoId++,cat:document.getElementById('if-cat').value,name:name,hist:editingInfoHistItems.slice()};if(editingInfoId){var idx=infoData.findIndex(function(x){return x.id===editingInfoId;});if(idx>=0)infoData[idx]=entry;}else infoData.unshift(entry);closeInfoModalBtn();renderInfoList();}
+function saveInfoEntry(){
+  var name=document.getElementById('if-name').value.trim();
+  if(!name){alert('이름을 입력해주세요');return;}
+  var cat=document.getElementById('if-cat').value;
+  var entry={
+    id:editingInfoId||nextInfoId++,
+    cat:cat,
+    name:name,
+    hist:editingInfoHistItems.slice()
+  };
+  if(editingInfoId){
+    var idx=infoData.findIndex(function(x){return x.id===editingInfoId;});
+    if(idx>=0)infoData[idx]=entry;
+  } else {
+    infoData.unshift(entry);
+  }
+  closeInfoModalBtn();
+  renderInfoList();
+
+  // 구글 시트에 저장 — hist 항목 하나씩 저장
+  var url=getGasUrl();
+  if(!url){showToast('✅ 저장됨 (구글 시트 미연결)');return;}
+
+  var histItems = entry.hist||[];
+  if(histItems.length===0){
+    // 내용 없이 이름만 있는 경우
+    saveInfoToGAS({cat:cat, name:name, text:'', date:today()}, function(ok){
+      showToast(ok?'✅ 주요정보 저장 ✓ 구글 시트 반영':'⚠️ 앱 저장됨 (구글 시트 확인 필요)');
+    });
+    return;
+  }
+
+  // hist 항목 순서대로 저장
+  var saved=0;
+  histItems.forEach(function(h){
+    saveInfoToGAS({cat:cat, name:name, text:h.text||'', date:h.date||today()}, function(ok){
+      saved++;
+      if(saved===histItems.length){
+        showToast(ok?'✅ 주요정보 저장 ✓ 구글 시트 반영':'⚠️ 앱 저장됨 (구글 시트 확인 필요)');
+      }
+    });
+  });
+}
 function delInfoEntry(id,e){if(e)e.stopPropagation();var d=infoData.find(function(x){return x.id===id;});if(!d)return;document.getElementById('confirm-msg').textContent='"'+d.name+'" 항목을 정말로 삭제하시겠습니까?';confirmCallback=function(){infoData=infoData.filter(function(x){return x.id!==id;});renderInfoList();};document.getElementById('confirm-bg').classList.add('open');}
 function confirmYes(){if(confirmCallback)confirmCallback();document.getElementById('confirm-bg').classList.remove('open');confirmCallback=null;}
 function confirmNo(){document.getElementById('confirm-bg').classList.remove('open');confirmCallback=null;}
