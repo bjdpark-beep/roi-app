@@ -435,7 +435,11 @@ body{background:#f0f0f0;display:flex;justify-content:center;min-height:100vh;fon
       <div class="hist-add-row"><input type="text" id="hist-new-input" placeholder="메모 입력 후 추가"><button onclick="addHistItem()">+ 추가</button></div>
     </div>
     <div style="font-size:10px;color:var(--color-text-secondary);margin-top:6px;">입력일 자동 기록됩니다</div>
-    <div class="btn-row"><button class="btn-cancel" onclick="closeModalBtn()">취소</button><button class="btn-save" onclick="saveEntry()">저장</button></div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModalBtn()">취소</button>
+      <button id="modal-delete-btn" style="flex:1;padding:9px;border-radius:var(--border-radius-md);font-size:13px;cursor:pointer;background:#FAECE7;color:#993C1D;border:0.5px solid #F5C4B3;display:none;" onclick="deleteEntry()">삭제</button>
+      <button class="btn-save" onclick="saveEntry()">저장</button>
+    </div>
   </div>
 </div>
 
@@ -719,6 +723,36 @@ function loadFromGAS(){
   document.head.appendChild(script);
 }
 function testGasConnection(){loadFromGAS();}
+
+// GAS에서 행 삭제
+function deleteFromGAS(rowIndex, sheetType, callback) {
+  var url = getGasUrl();
+  if (!url || !rowIndex) { if(callback) callback(false); return; }
+  var cbName = 'gasDel_' + Date.now();
+  var timer = setTimeout(function() {
+    var s = document.getElementById('gas-del-script-' + cbName);
+    if(s) s.parentNode.removeChild(s);
+    delete window[cbName];
+    if(callback) callback(false);
+  }, 10000);
+  window[cbName] = function(res) {
+    clearTimeout(timer);
+    var s = document.getElementById('gas-del-script-' + cbName);
+    if(s) s.parentNode.removeChild(s);
+    delete window[cbName];
+    if(callback) callback(res && res.success);
+  };
+  var action = sheetType === 'info' ? 'deleteInfo' : 'deleteInsurance';
+  var script = document.createElement('script');
+  script.id = 'gas-del-script-' + cbName;
+  script.src = url + '?callback=' + cbName + '&action=' + action + '&rowIndex=' + rowIndex + '&t=' + Date.now();
+  script.onerror = function() {
+    clearTimeout(timer);
+    delete window[cbName];
+    if(callback) callback(false);
+  };
+  document.head.appendChild(script);
+}
 function saveToGAS(record, callback) {
   var url = getGasUrl();
   if (!url) { if (callback) callback(false); return; }
@@ -867,8 +901,16 @@ function renderAlerts(){
 function exportCSV(){var headers=['업체명','사업자번호','보험사','취급자','구분','보종','보험료','보험만기일','갱신UY','갱신보험사','갱신보험료','갱신보종','갱신취급자','갱신만기','기타메모','입력일'];var rows=[headers.join(',')];data.forEach(function(d){var cr=getCurrentRenew(d);var memo=(d.hist||[]).map(function(h){return h.text;}).join(' | ');rows.push(['"'+(d.company||'')+'"',d.biznum||'',d.insurer||'',d.handler||'',d.type==='renewal_existing'?'갱신':'신규',d.instype||'',d.premium||0,d.expiry||'',cr?cr.uy:'',cr?cr.insurer:'',cr?cr.premium:'',cr?cr.instype:'',cr?cr.handler:'',cr?cr.expiry:'','"'+memo+'"',d.date||''].join(','));});var csv='\uFEFF'+rows.join('\n');var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='기업보험영업관리_'+today()+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);showToast('✅ CSV 내보내기 완료! ('+data.length+'건)');}
 function importCSV(event){var file=event.target.files[0];if(!file)return;var reader=new FileReader();reader.onload=function(e){var text=e.target.result;if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);var lines=text.split('\n').filter(function(l){return l.trim();});if(lines.length<2){showToast('❌ 데이터가 없습니다');return;}var newRecords=[],skipped=0;for(var i=1;i<lines.length;i++){var cols=parseCSVLine(lines[i]);if(cols.length<8||!cols[0])continue;var company=cols[0].replace(/^"|"$/g,'').trim();var expiry=cols[7]||'';if(!company)continue;var isDup=data.some(function(d){return d.company===company&&d.expiry===expiry;});if(isDup){skipped++;continue;}var rec={id:nextId++,company:company,biznum:cols[1]||'',insurer:cols[2]||'-',handler:cols[3]||'-',type:cols[4]==='신규'?'renewal_new':'renewal_existing',instype:cols[5]||'미입력',premium:parseInt(cols[6])||0,expiry:expiry,renewHistory:[],hist:[],date:today()};data.push(rec);newRecords.push(rec);}renderHome();if(document.getElementById('tab-alerts').classList.contains('active'))renderAlerts();renderDataStats();event.target.value='';if(getGasUrl()&&newRecords.length>0){bulkInsertToGAS(newRecords,function(added,skip){showToast('✅ '+newRecords.length+'건 추가 (중복 '+skipped+'건 제외) + 구글 시트 저장!');});}else{showToast('✅ '+newRecords.length+'건 추가! (중복 '+skipped+'건 제외)');}};reader.readAsText(file,'UTF-8');}
 function parseCSVLine(line){var result=[],cur='',inQ=false;for(var i=0;i<line.length;i++){var c=line[i];if(c==='"'){inQ=!inQ;}else if(c===','&&!inQ){result.push(cur);cur='';}else{cur+=c;}}result.push(cur);return result;}
-function openAddModal(){editingId=null;editingHistItems=[];currentEditExpiry='';document.getElementById('modal-title').textContent='업체 추가등록';['f-company','f-biznum','f-insurer','f-handler','f-instype','f-rinsurer','f-rinstype','f-rhandler'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('f-type').value='renewal_existing';document.getElementById('f-premium').value='';document.getElementById('f-rpremium').value='';document.getElementById('f-expiry').value='';document.getElementById('renew-box').style.display='none';document.getElementById('expiry-auto').checked=true;document.getElementById('f-rexpiry').style.display='none';document.getElementById('expiry-auto-preview').textContent='';renderHistEdit();document.getElementById('modal-bg').classList.add('open');}
-function openEditModal(id,e){if(e)e.stopPropagation();var d=data.find(function(x){return x.id===id;});if(!d)return;editingId=id;editingHistItems=(d.hist||[]).map(function(h){return{text:h.text,date:h.date};});currentEditExpiry=d.expiry||'';document.getElementById('modal-title').textContent='수정 - '+d.company;document.getElementById('f-company').value=d.company;document.getElementById('f-biznum').value=d.biznum||'';document.getElementById('f-insurer').value=d.insurer||'';document.getElementById('f-handler').value=d.handler||'';document.getElementById('f-type').value=d.type;document.getElementById('f-instype').value=d.instype;document.getElementById('f-premium').value=d.premium?Number(d.premium).toLocaleString():'';document.getElementById('f-expiry').value=d.expiry||'';var uy=curUY(),isNew=d.type==='renewal_new';document.getElementById('renew-box-title').textContent=isNew?'금년 신규입력 확정 입력 (UY'+uy+')':'금년 갱신 확정 입력 (UY'+uy+')';var showRenew=inRenewPeriod(d.expiry);document.getElementById('renew-box').style.display=showRenew?'block':'none';document.getElementById('expiry-auto').checked=true;document.getElementById('f-rexpiry').style.display='none';document.getElementById('f-rexpiry').value='';document.getElementById('expiry-auto-preview').textContent=d.expiry?'자동 계산: '+fmtDate(addOneYear(d.expiry)):'';if(showRenew){var curRen=getCurrentRenew(d);document.getElementById('f-rinsurer').value=curRen?curRen.insurer:'';document.getElementById('f-rpremium').value=curRen&&curRen.premium?Number(curRen.premium).toLocaleString():'';document.getElementById('f-rinstype').value=curRen?curRen.instype:'';document.getElementById('f-rhandler').value=curRen?curRen.handler:'';}else{['f-rinsurer','f-rinstype','f-rhandler'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('f-rpremium').value='';}renderHistEdit();document.getElementById('modal-bg').classList.add('open');}
+function openAddModal(){editingId=null;editingHistItems=[];currentEditExpiry='';document.getElementById('modal-title').textContent='업체 추가등록';['f-company','f-biznum','f-insurer','f-handler','f-instype','f-rinsurer','f-rinstype','f-rhandler'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('f-type').value='renewal_existing';document.getElementById('f-premium').value='';document.getElementById('f-rpremium').value='';document.getElementById('f-expiry').value='';document.getElementById('renew-box').style.display='none';document.getElementById('expiry-auto').checked=true;document.getElementById('f-rexpiry').style.display='none';document.getElementById('expiry-auto-preview').textContent='';renderHistEdit();
+  // 수정 모달에서만 삭제 버튼 표시
+  document.getElementById('modal-delete-btn').style.display='block';
+  document.getElementById('modal-bg').classList.add('open');
+}
+function openEditModal(id,e){if(e)e.stopPropagation();var d=data.find(function(x){return x.id===id;});if(!d)return;editingId=id;editingHistItems=(d.hist||[]).map(function(h){return{text:h.text,date:h.date};});currentEditExpiry=d.expiry||'';document.getElementById('modal-title').textContent='수정 - '+d.company;document.getElementById('f-company').value=d.company;document.getElementById('f-biznum').value=d.biznum||'';document.getElementById('f-insurer').value=d.insurer||'';document.getElementById('f-handler').value=d.handler||'';document.getElementById('f-type').value=d.type;document.getElementById('f-instype').value=d.instype;document.getElementById('f-premium').value=d.premium?Number(d.premium).toLocaleString():'';document.getElementById('f-expiry').value=d.expiry||'';var uy=curUY(),isNew=d.type==='renewal_new';document.getElementById('renew-box-title').textContent=isNew?'금년 신규입력 확정 입력 (UY'+uy+')':'금년 갱신 확정 입력 (UY'+uy+')';var showRenew=inRenewPeriod(d.expiry);document.getElementById('renew-box').style.display=showRenew?'block':'none';document.getElementById('expiry-auto').checked=true;document.getElementById('f-rexpiry').style.display='none';document.getElementById('f-rexpiry').value='';document.getElementById('expiry-auto-preview').textContent=d.expiry?'자동 계산: '+fmtDate(addOneYear(d.expiry)):'';if(showRenew){var curRen=getCurrentRenew(d);document.getElementById('f-rinsurer').value=curRen?curRen.insurer:'';document.getElementById('f-rpremium').value=curRen&&curRen.premium?Number(curRen.premium).toLocaleString():'';document.getElementById('f-rinstype').value=curRen?curRen.instype:'';document.getElementById('f-rhandler').value=curRen?curRen.handler:'';}else{['f-rinsurer','f-rinstype','f-rhandler'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('f-rpremium').value='';}renderHistEdit();
+  // 수정 모달에서만 삭제 버튼 표시
+  document.getElementById('modal-delete-btn').style.display='block';
+  document.getElementById('modal-bg').classList.add('open');
+}
 function toggleExpiryInput(){var isManual=document.getElementById('expiry-manual').checked;document.getElementById('f-rexpiry').style.display=isManual?'block':'none';document.getElementById('expiry-auto-preview').textContent=(!isManual&&currentEditExpiry)?'자동 계산: '+fmtDate(addOneYear(currentEditExpiry)):'';}
 function renderHistEdit(){document.getElementById('hist-list-edit').innerHTML=editingHistItems.map(function(h,i){return '<div class="hist-item-edit"><div style="flex:1;"><div style="font-size:11px;color:var(--color-text-primary);">'+h.text+'</div><div style="font-size:10px;color:var(--color-text-secondary);">'+fmtDate(h.date)+'</div></div><button class="hist-del-btn" onclick="delHistItem('+i+')">×</button></div>';}).join('');}
 function addHistItem(){var v=document.getElementById('hist-new-input').value.trim();if(!v)return;editingHistItems.push({text:v,date:today()});document.getElementById('hist-new-input').value='';renderHistEdit();}
@@ -933,7 +975,44 @@ function saveInfoEntry(){
     });
   });
 }
-function delInfoEntry(id,e){if(e)e.stopPropagation();var d=infoData.find(function(x){return x.id===id;});if(!d)return;document.getElementById('confirm-msg').textContent='"'+d.name+'" 항목을 정말로 삭제하시겠습니까?';confirmCallback=function(){infoData=infoData.filter(function(x){return x.id!==id;});renderInfoList();};document.getElementById('confirm-bg').classList.add('open');}
+
+function deleteEntry(){
+  if(!editingId) return;
+  var d = data.find(function(x){return x.id===editingId;});
+  if(!d) return;
+  document.getElementById('confirm-msg').textContent='"'+d.company+'" 계약을 정말로 삭제하시겠습니까?';
+  confirmCallback = function(){
+    // 구글 시트에서도 삭제
+    if(d.rowIndex){
+      deleteFromGAS(d.rowIndex, 'insurance', function(ok){
+        showToast(ok?'✅ 삭제 완료 ✓ 구글 시트 반영':'⚠️ 앱에서만 삭제됨');
+      });
+    }
+    data = data.filter(function(x){return x.id!==editingId;});
+    closeModalBtn();
+    renderHome();
+    renderAlerts();
+  };
+  closeModalBtn();
+  document.getElementById('confirm-bg').classList.add('open');
+}
+function delInfoEntry(id,e){
+  if(e)e.stopPropagation();
+  var d=infoData.find(function(x){return x.id===id;});
+  if(!d)return;
+  document.getElementById('confirm-msg').textContent='"'+d.name+'" 항목을 정말로 삭제하시겠습니까?';
+  confirmCallback=function(){
+    // 구글 시트에서도 삭제
+    if(d.rowIndex){
+      deleteFromGAS(d.rowIndex, 'info', function(ok){
+        showToast(ok?'✅ 삭제 완료 ✓ 구글 시트 반영':'⚠️ 앱에서만 삭제됨');
+      });
+    }
+    infoData=infoData.filter(function(x){return x.id!==id;});
+    renderInfoList();
+  };
+  document.getElementById('confirm-bg').classList.add('open');
+}
 function confirmYes(){if(confirmCallback)confirmCallback();document.getElementById('confirm-bg').classList.remove('open');confirmCallback=null;}
 function confirmNo(){document.getElementById('confirm-bg').classList.remove('open');confirmCallback=null;}
 function toggleExpand(){urgentExpanded=!urgentExpanded;document.getElementById('home-expanded').style.display=urgentExpanded?'block':'none';document.getElementById('expand-arrow').classList.toggle('open',urgentExpanded);var rest=parseInt(document.getElementById('expand-btn').getAttribute('data-rest'))||0;document.getElementById('expand-label').textContent=urgentExpanded?'접기':'더보기 '+rest+'건';}
