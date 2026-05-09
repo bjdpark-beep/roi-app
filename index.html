@@ -871,22 +871,11 @@ function renderAlerts(){
   var nh='';
 
   if(filter==='all'){
-    // 전체탭: 만기일 임박순 정렬 후 UY 그룹 헤더 표시
+    // 전체탭: 만기일 임박순
     filtered.sort(function(a,b){
       return daysUntil(a.expiry)-daysUntil(b.expiry);
     });
-    // UY 그룹 헤더 표시하면서 나열
-    var curUYLabel='';
-    filtered.forEach(function(d){
-      var yrBase=d.expiry?parseInt(d.expiry.substr(0,4)):0;
-      var yr=d.year?String(d.year):(yrBase?(d.type==='renewal_new'?String(yrBase):String(yrBase-1)):'미정');
-      var uyLabel='UY'+yr;
-      if(uyLabel!==curUYLabel){
-        nh+='<div class="year-label">'+uyLabel+'</div>';
-        curUYLabel=uyLabel;
-      }
-      nh+=makeAlertCard(d);
-    });
+    filtered.forEach(function(d){nh+=makeAlertCard(d);});
     document.getElementById('alerts-top10').innerHTML=nh;
     document.getElementById('alerts-scroll-box').style.display='none';
 
