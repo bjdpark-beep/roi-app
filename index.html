@@ -704,7 +704,9 @@ function loadFromGAS(){
       infoRaw.forEach(function(r){
         var key = r.cat+'||'+r.name;
         if(!iMap[key]){
-          iMap[key]={id:r.rowIndex, rowIndex:r.rowIndex, cat:r.cat, name:r.name, hist:[]};
+          iMap[key]={id:r.rowIndex, rowIndex:r.rowIndex, rowIndexes:[r.rowIndex], cat:r.cat, name:r.name, hist:[]};
+        } else {
+          iMap[key].rowIndexes.push(r.rowIndex);
         }
         if(r.text){iMap[key].hist.push({text:r.text, date:r.date||''});}
       });
@@ -880,12 +882,9 @@ function renderAlerts(){
     // UY 높은순 정렬
     Object.keys(by).sort(function(a,b){return b-a;}).forEach(function(yr){
       // 각 그룹 내 업체명 가나다순 정렬
+      // 만기일 임박순 정렬
       by[yr].sort(function(a,b){
-        var ca=String(a.company||'');
-        var cb=String(b.company||'');
-        if(ca<cb)return -1;
-        if(ca>cb)return 1;
-        return 0;
+        return daysUntil(a.expiry)-daysUntil(b.expiry);
       });
       nh+='<div class="year-label">UY'+yr+'</div>';
       by[yr].forEach(function(d){nh+=makeAlertCard(d);});
@@ -1024,10 +1023,20 @@ function delInfoEntry(id,e){
   var delRowIndex=d.rowIndex;
   var delName=d.name;
   document.getElementById('confirm-msg').textContent='"'+delName+'" 항목을 정말로 삭제하시겠습니까?';
+  var delRowIndexes = d.rowIndexes || (delRowIndex ? [delRowIndex] : []);
   confirmCallback=function(){
-    if(delRowIndex){
-      deleteFromGAS(delRowIndex, 'info', function(ok){
-        showToast(ok?'✅ 삭제 완료 ✓ 구글 시트 반영':'⚠️ 앱에서만 삭제됨');
+    if(delRowIndexes.length > 0){
+      // 모든 행 삭제 (높은 rowIndex부터 삭제해야 행 번호 안 밀림)
+      var sortedIndexes = delRowIndexes.slice().sort(function(a,b){return b-a;});
+      var total = sortedIndexes.length;
+      var done = 0;
+      sortedIndexes.forEach(function(ri){
+        deleteFromGAS(ri, 'info', function(ok){
+          done++;
+          if(done === total){
+            showToast(ok?'✅ 삭제 완료 ✓ 구글 시트 반영':'⚠️ 앱에서만 삭제됨');
+          }
+        });
       });
     } else {
       showToast('⚠️ rowIndex 없음 - 앱에서만 삭제됨');
@@ -1116,10 +1125,13 @@ setTimeout(function(){
             infoMap[key] = {
               id: r.rowIndex,
               rowIndex: r.rowIndex,
+              rowIndexes: [r.rowIndex], // 모든 행 인덱스 저장
               cat: r.cat,
               name: r.name,
               hist: []
             };
+          } else {
+            infoMap[key].rowIndexes.push(r.rowIndex); // 추가 행 인덱스 저장
           }
           if(r.text){
             infoMap[key].hist.push({text: r.text, date: r.date||''});
