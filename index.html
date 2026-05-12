@@ -540,7 +540,7 @@ function changePw(){
 // ════════════════════════════════════════════════════════════
 //  앱 기본 설정
 // ════════════════════════════════════════════════════════════
-var GAS_URL = "https://script.google.com/macros/s/AKfycbwwhO4DQeX3jt1c9gNrtvfJBkJKdSXUkgMZAr-75X4posMxLxw34m-Uls-vEGY2qw2R/exec";
+var GAS_URL = "https://script.google.com/macros/s/AKfycbwNxi3e_sxz6tLY7m8Gd0vPkV5JfVGLGfH9C7R9wbKQzIh9oyFOq9Sx9NMwNO2OL-Qe/exec";
 var urgentExpanded=false,currentAlertFilter='all',currentInfoCat='업체명',searchKeyword='',alertExpanded=false;
 var editingId=null,editingHistItems=[],editingInfoId=null,editingInfoHistItems=[];
 var confirmCallback=null,currentEditExpiry='';
@@ -780,13 +780,9 @@ function deleteFromGAS(rowIndex, sheetType, callback) {
 }
 // 특수문자 안전 인코딩 함수
 function safeEncode(str) {
-  try {
-    // 1단계: encodeURIComponent로 한글+특수문자 → %XX 형태로 변환
-    // 2단계: btoa로 Base64 인코딩 (이제 ASCII만 남아서 안전)
-    return btoa(encodeURIComponent(str));
-  } catch(e) {
-    return encodeURIComponent(str);
-  }
+  // encodeURIComponent만 사용 - 한글+특수문자 모두 안전
+  // GAS에서 decodeURIComponent로 디코딩
+  return encodeURIComponent(str);
 }
 
 function saveToGAS(record, callback) {
@@ -820,7 +816,7 @@ function saveToGAS(record, callback) {
   var dataStr = safeEncode(jsonStr);
   var script = document.createElement('script');
   script.id = 'gas-save-script-' + cbName;
-  script.src = url + '?callback=' + cbName + '&action=saveInsurance&b64=1&data=' + dataStr + '&t=' + Date.now();
+  script.src = url + '?callback=' + cbName + '&action=saveInsurance&data=' + dataStr + '&t=' + Date.now();
   script.onerror = function() {
     if (timer) clearTimeout(timer);
     delete window[cbName];
@@ -856,7 +852,7 @@ function saveInfoToGAS(record, callback) {
   var dataStr = safeEncode(jsonStr2);
   var script = document.createElement('script');
   script.id = 'gas-info-script-' + cbName;
-  script.src = url + '?callback=' + cbName + '&action=saveInfo&b64=1&data=' + dataStr + '&t=' + Date.now();
+  script.src = url + '?callback=' + cbName + '&action=saveInfo&data=' + dataStr + '&t=' + Date.now();
   script.onerror = function() {
     if (timer) clearTimeout(timer);
     delete window[cbName];
