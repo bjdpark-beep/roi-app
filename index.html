@@ -540,7 +540,7 @@ function changePw(){
 // ════════════════════════════════════════════════════════════
 //  앱 기본 설정
 // ════════════════════════════════════════════════════════════
-var GAS_URL = "https://script.google.com/macros/s/AKfycby-kXMfl7YpzyOMwEcoZJaa_cG1VBFE6iIzZlMncTxCDKmlt70yl7J4e7DYyq6yJHox/exec";
+var GAS_URL = "https://script.google.com/macros/s/AKfycbzrcpDDR5f0k5gGRKAlAyoI5F_27n6Eh-JIJSEaj-5HFSwvRNiDbMt0SjufIDhfyJ19/exec";
 var urgentExpanded=false,currentAlertFilter='all',currentInfoCat='업체명',searchKeyword='',alertExpanded=false;
 var editingId=null,editingHistItems=[],editingInfoId=null,editingInfoHistItems=[];
 var confirmCallback=null,currentEditExpiry='';
@@ -556,7 +556,12 @@ function today(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)
 function pad(n){return String(n).padStart(2,'0');}
 function curUY(){return new Date().getFullYear();}
 function daysUntil(s){if(!s)return 9999;return Math.ceil((new Date(s)-new Date(today()))/86400000);}
-function dBadge(d){if(d<0)return '<span class="badge gray">만기</span>';if(d<=15)return '<span class="badge red">D-'+d+'</span>';return '<span class="badge amber">D-'+d+'</span>';}
+function dBadge(d){
+  if(d<0) return '<span class="badge red">D+'+Math.abs(d)+'</span>';
+  if(d===0) return '<span class="badge red">D-Day</span>';
+  if(d<=15) return '<span class="badge red">D-'+d+'</span>';
+  return '<span class="badge amber">D-'+d+'</span>';
+}
 function typeBadge(t){return t==='renewal_existing'?'<span class="badge green">갱신</span>':'<span class="badge blue">신규</span>';}
 function isActive(t){return t==='renewal_existing'||t==='renewal_new';}
 function fmtWon(p){if(!p&&p!==0)return '미정';return Number(p).toLocaleString()+'원';}
@@ -773,6 +778,16 @@ function deleteFromGAS(rowIndex, sheetType, callback) {
   };
   document.head.appendChild(script);
 }
+// 특수문자 안전 인코딩 함수
+function safeEncode(str) {
+  try {
+    // 한글+특수문자 모두 안전하게 처리
+    return btoa(unescape(encodeURIComponent(str)));
+  } catch(e) {
+    return encodeURIComponent(str);
+  }
+}
+
 function saveToGAS(record, callback) {
   var url = getGasUrl();
   if (!url) { if (callback) callback(false); return; }
@@ -788,7 +803,6 @@ function saveToGAS(record, callback) {
     if (callback) callback(res && res.success);
   };
 
-  // 타임아웃 10초
   timer = setTimeout(function() {
     var s = document.getElementById('gas-save-script-' + cbName);
     if (s) s.parentNode.removeChild(s);
@@ -796,17 +810,16 @@ function saveToGAS(record, callback) {
     if (callback) callback(false);
   }, 10000);
 
-  // 데이터 최소화 - hist 최대 5개만
   var r = JSON.parse(JSON.stringify(record));
   if (r.hist && r.hist.length > 5) r.hist = r.hist.slice(-5);
   r.renewHistory = [];
 
   var jsonStr = JSON.stringify({action:'saveInsurance', record:r});
-  // 특수문자 안전 인코딩
-  var dataStr = encodeURIComponent(jsonStr);
+  // Base64로 인코딩 → % # & 등 특수문자 완벽 처리
+  var dataStr = safeEncode(jsonStr);
   var script = document.createElement('script');
   script.id = 'gas-save-script-' + cbName;
-  script.src = url + '?callback=' + cbName + '&action=saveInsurance&data=' + dataStr + '&t=' + Date.now();
+  script.src = url + '?callback=' + cbName + '&action=saveInsurance&b64=1&data=' + dataStr + '&t=' + Date.now();
   script.onerror = function() {
     if (timer) clearTimeout(timer);
     delete window[cbName];
@@ -838,10 +851,11 @@ function saveInfoToGAS(record, callback) {
     if (callback) callback(false);
   }, 10000);
 
-  var dataStr = encodeURIComponent(JSON.stringify({action:'saveInfo', record:record}));
+  var jsonStr2 = JSON.stringify({action:'saveInfo', record:record});
+  var dataStr = safeEncode(jsonStr2);
   var script = document.createElement('script');
   script.id = 'gas-info-script-' + cbName;
-  script.src = url + '?callback=' + cbName + '&action=saveInfo&data=' + dataStr + '&t=' + Date.now();
+  script.src = url + '?callback=' + cbName + '&action=saveInfo&b64=1&data=' + dataStr + '&t=' + Date.now();
   script.onerror = function() {
     if (timer) clearTimeout(timer);
     delete window[cbName];
@@ -958,12 +972,18 @@ function closeModal(e){if(e.target===document.getElementById('modal-bg'))closeMo
 function closeModalBtn(){document.getElementById('modal-bg').classList.remove('open');}
 function saveEntry(){var company=document.getElementById('f-company').value.trim();if(!company){alert('업체명을 입력해주세요');return;}var uy=curUY();var rIns=document.getElementById('f-rinsurer').value.trim();var rPrem=parseWon(document.getElementById('f-rpremium').value);var rInstype=document.getElementById('f-rinstype').value.trim();var rHandler=document.getElementById('f-rhandler').value.trim();var hasRenew=rIns||rPrem||rInstype||rHandler;var existing=editingId?data.find(function(x){return x.id===editingId;}):null;var renewHistory=existing?(existing.renewHistory||[]).slice():[];var newInsurer=document.getElementById('f-insurer').value.trim()||'-';var newHandler=document.getElementById('f-handler').value.trim()||'-';var newInstype=document.getElementById('f-instype').value.trim()||'미입력';var newPremium=parseWon(document.getElementById('f-premium').value);var newExpiry=document.getElementById('f-expiry').value;var newType=document.getElementById('f-type').value;if(hasRenew){var isManual=document.getElementById('expiry-manual').checked;var rExpiry='';if(isManual){rExpiry=document.getElementById('f-rexpiry').value;if(!rExpiry){alert('갱신 만기일을 직접 입력해주세요');return;}}else{rExpiry=addOneYear(newExpiry);}var rec={uy:uy,insurer:rIns||newInsurer,premium:rPrem||newPremium,instype:rInstype||newInstype,handler:rHandler||newHandler,expiry:rExpiry};var idx=renewHistory.findIndex(function(r){return r.uy===uy;});if(idx>=0)renewHistory[idx]=rec;else renewHistory.unshift(rec);newInsurer=rIns||newInsurer;newHandler=rHandler||newHandler;newInstype=rInstype||newInstype;newPremium=rPrem||newPremium;newExpiry=rExpiry;if(newType==='renewal_new')newType='renewal_existing';}var uyBase3 = newExpiry ? parseInt(newExpiry.substr(0,4)) : curUY();
   var uyYear = (newType==='renewal_new') ? uyBase3 : uyBase3-1;
-  var entry={id:editingId||nextId++,company:company,biznum:document.getElementById('f-biznum').value.trim(),insurer:newInsurer,handler:newHandler,type:newType,instype:newInstype,premium:newPremium,expiry:newExpiry,renewHistory:renewHistory,hist:editingHistItems.slice(),date:today(),year:uyYear};if(editingId){var ei=data.findIndex(function(x){return x.id===editingId;});if(ei>=0)data[ei]=entry;}else data.push(entry);closeModalBtn();renderHome();if(document.getElementById('tab-alerts').classList.contains('active'))renderAlerts();
-  // 수정 시 기존 행 삭제 후 새로 저장
-  if(editingId && entry.rowIndex){
-    deleteFromGAS(entry.rowIndex, 'insurance', function(){
-      entry.rowIndex = null; // 새 행으로 저장
-      saveToGAS(entry, function(ok){
+  var entry={id:editingId||nextId++,company:company,biznum:document.getElementById('f-biznum').value.trim(),insurer:newInsurer,handler:newHandler,type:newType,instype:newInstype,premium:newPremium,expiry:newExpiry,renewHistory:renewHistory,hist:editingHistItems.slice(),date:today(),year:uyYear};// oldRowIndex 먼저 저장 (data 업데이트 전!)
+  var oldRowIndex = editingId ? (function(){
+    var old = data.find(function(x){return x.id===editingId;});
+    return old ? old.rowIndex : null;
+  })() : null;
+  if(editingId){var ei=data.findIndex(function(x){return x.id===editingId;});if(ei>=0)data[ei]=entry;}else data.push(entry);closeModalBtn();renderHome();if(document.getElementById('tab-alerts').classList.contains('active'))renderAlerts();
+
+  if(editingId && oldRowIndex){
+    deleteFromGAS(oldRowIndex, 'insurance', function(){
+      var saveEntry2 = JSON.parse(JSON.stringify(entry));
+      saveEntry2.rowIndex = null;
+      saveToGAS(saveEntry2, function(ok){
         showToast(ok?'✅ 수정 완료 ✓ 구글 시트 반영':'⚠️ 앱 저장됨 (구글 시트 확인 필요)');
       });
     });
