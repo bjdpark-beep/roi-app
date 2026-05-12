@@ -540,7 +540,7 @@ function changePw(){
 // ════════════════════════════════════════════════════════════
 //  앱 기본 설정
 // ════════════════════════════════════════════════════════════
-var GAS_URL = "https://script.google.com/macros/s/AKfycbyhc3tzp0HzfjEGuBpLb6B6hzEQVdqWrz8Ct7QpAplng315plipVQnf-z8xGUTK5hNW/exec";
+var GAS_URL = "https://script.google.com/macros/s/AKfycbzRQ_puOgLll5WWzru49KU6m_Dvvq8hMnWOhiH6SFlq9wVuNuA1HJFNOR8plSSOqKw-/exec";
 var urgentExpanded=false,currentAlertFilter='all',currentInfoCat='업체명',searchKeyword='',alertExpanded=false;
 var editingId=null,editingHistItems=[],editingInfoId=null,editingInfoHistItems=[];
 var confirmCallback=null,currentEditExpiry='';
@@ -797,7 +797,7 @@ function saveToGAS(record, callback) {
     var s = document.getElementById('gas-save-script-' + cbName);
     if (s) s.parentNode.removeChild(s);
     delete window[cbName];
-    if (callback) callback(res && res.success);
+    if (callback) callback(res && res.success, res && res.rowIndex);
   };
 
   timer = setTimeout(function() {
@@ -990,15 +990,26 @@ function saveEntry(){var company=document.getElementById('f-company').value.trim
   if(editingId){var ei=data.findIndex(function(x){return x.id===editingId;});if(ei>=0)data[ei]=entry;}else data.push(entry);closeModalBtn();renderHome();if(document.getElementById('tab-alerts').classList.contains('active'))renderAlerts();
 
   if(editingId && oldRowIndex){
-    deleteFromGAS(oldRowIndex, 'insurance', function(){
+    // 기존 행 삭제 후 새로 저장
+    deleteFromGAS(oldRowIndex, 'insurance', function(delOk){
       var saveEntry2 = JSON.parse(JSON.stringify(entry));
-      saveEntry2.rowIndex = null;
-      saveToGAS(saveEntry2, function(ok){
+      saveEntry2.rowIndex = null; // 새 행으로 저장
+      saveToGAS(saveEntry2, function(ok, newRowIndex){
+        // 새 rowIndex를 data에 업데이트
+        if(newRowIndex){
+          var ei2 = data.findIndex(function(x){return x.id===entry.id;});
+          if(ei2>=0) data[ei2].rowIndex = newRowIndex;
+        }
         showToast(ok?'✅ 수정 완료 ✓ 구글 시트 반영':'⚠️ 앱 저장됨 (구글 시트 확인 필요)');
       });
     });
   } else {
-    saveToGAS(entry, function(ok){
+    saveToGAS(entry, function(ok, newRowIndex){
+      // 신규 저장시 rowIndex 업데이트
+      if(newRowIndex){
+        var ei3 = data.findIndex(function(x){return x.id===entry.id;});
+        if(ei3>=0) data[ei3].rowIndex = newRowIndex;
+      }
       showToast(ok?'✅ 저장 완료 ✓ 구글 시트 반영':'⚠️ 앱 저장됨 (구글 시트 확인 필요)');
     });
   }}
