@@ -540,7 +540,7 @@ function changePw(){
 // ════════════════════════════════════════════════════════════
 //  앱 기본 설정
 // ════════════════════════════════════════════════════════════
-var GAS_URL = "https://script.google.com/macros/s/AKfycbwNxi3e_sxz6tLY7m8Gd0vPkV5JfVGLGfH9C7R9wbKQzIh9oyFOq9Sx9NMwNO2OL-Qe/exec";
+var GAS_URL = "https://script.google.com/macros/s/AKfycbyhc3tzp0HzfjEGuBpLb6B6hzEQVdqWrz8Ct7QpAplng315plipVQnf-z8xGUTK5hNW/exec";
 var urgentExpanded=false,currentAlertFilter='all',currentInfoCat='업체명',searchKeyword='',alertExpanded=false;
 var editingId=null,editingHistItems=[],editingInfoId=null,editingInfoHistItems=[];
 var confirmCallback=null,currentEditExpiry='';
@@ -811,12 +811,25 @@ function saveToGAS(record, callback) {
   if (r.hist && r.hist.length > 5) r.hist = r.hist.slice(-5);
   r.renewHistory = [];
 
-  var jsonStr = JSON.stringify({action:'saveInsurance', record:r});
-  // Base64로 인코딩 → % # & 등 특수문자 완벽 처리
-  var dataStr = safeEncode(jsonStr);
+  // 개별 필드로 전송
+  var p = [];
+  p.push('callback=' + cbName);
+  p.push('action=saveInsurance');
+  p.push('t=' + Date.now());
+  p.push('year=' + encodeURIComponent(r.year||''));
+  p.push('company=' + encodeURIComponent(r.company||''));
+  p.push('biznum=' + encodeURIComponent(r.biznum||''));
+  p.push('insurer=' + encodeURIComponent(r.insurer||''));
+  p.push('handler=' + encodeURIComponent(r.handler||''));
+  p.push('type=' + encodeURIComponent(r.type||''));
+  p.push('instype=' + encodeURIComponent(r.instype||''));
+  p.push('premium=' + encodeURIComponent(r.premium||0));
+  p.push('expiry=' + encodeURIComponent(r.expiry||''));
+  p.push('date=' + encodeURIComponent(r.date||''));
+  p.push('hist=' + encodeURIComponent(JSON.stringify(r.hist||[])));
   var script = document.createElement('script');
   script.id = 'gas-save-script-' + cbName;
-  script.src = url + '?callback=' + cbName + '&action=saveInsurance&data=' + dataStr + '&t=' + Date.now();
+  script.src = url + '?' + p.join('&');
   script.onerror = function() {
     if (timer) clearTimeout(timer);
     delete window[cbName];
