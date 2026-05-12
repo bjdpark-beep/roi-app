@@ -92,7 +92,7 @@ body{background:#f0f0f0;display:flex;justify-content:center;min-height:100vh;fon
 .premium-half{flex:1;padding:3px 0;}
 .premium-half+.premium-half{border-left:0.5px solid var(--color-border-tertiary);padding-left:12px;}
 .premium-sub-label{font-size:10px;color:var(--color-text-secondary);margin-bottom:4px;}
-.premium-value,.premium-total-value{font-size:19px;font-weight:500;color:var(--color-text-primary);}
+.premium-value,.premium-total-value{font-size:14px;font-weight:500;color:var(--color-text-primary);white-space:nowrap;}
 .uc{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:9px 12px;margin-bottom:6px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
 .uc.urgent-red{border:2px solid #FB3B1E;}
 .uc-left{flex:1;min-width:0;}
@@ -564,6 +564,16 @@ function dBadge(d){
 }
 function typeBadge(t){return t==='renewal_existing'?'<span class="badge green">갱신</span>':'<span class="badge blue">신규</span>';}
 function isActive(t){return t==='renewal_existing'||t==='renewal_new';}
+
+// 큰 금액 단위 변환 (홈화면용)
+function fmtWonShort(p){
+  if(!p && p!==0) return '미정';
+  var n = Number(p);
+  if(n >= 1000000000000) return (n/1000000000000).toFixed(1).replace(/\.0$/,'') + '조원';
+  if(n >= 100000000) return (n/100000000).toFixed(1).replace(/\.0$/,'') + '억원';
+  if(n >= 10000) return (n/10000).toFixed(0) + '만원';
+  return n.toLocaleString() + '원';
+}
 function fmtWon(p){if(!p&&p!==0)return '미정';return Number(p).toLocaleString()+'원';}
 function fmtDate(d){if(!d)return '';return d.replace(/-/g,'.');}
 function fmtInput(el){var raw=el.value.replace(/[^0-9]/g,'');el.value=raw?Number(raw).toLocaleString():'';}
