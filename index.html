@@ -540,7 +540,7 @@ function changePw(){
 // ════════════════════════════════════════════════════════════
 //  앱 기본 설정
 // ════════════════════════════════════════════════════════════
-var GAS_URL = "https://script.google.com/macros/s/AKfycby5_WEQWq_Z3SUBNDoj7qSFEDooo4r7S3PtoaKrdJol2fhVPOS5h5uIuV9NcBezSWUC/exec";
+var GAS_URL = "https://script.google.com/macros/s/AKfycbxSTt1khr7iOa4raCNoevAQCmziGwKy9qxb4r6AsfXbRcsr2tVgllI4RoppGHipnixB/exec";
 var urgentExpanded=false,currentAlertFilter='all',currentInfoCat='업체명',searchKeyword='',alertExpanded=false;
 var editingId=null,editingHistItems=[],editingInfoId=null,editingInfoHistItems=[];
 var confirmCallback=null,currentEditExpiry='';
@@ -1295,14 +1295,23 @@ setTimeout(function(){
         showToast('✅ 계약 '+data.length+'건 불러오기 완료!');
       }
     };
-    var script=document.createElement('script');
-    script.id='gas-init-script';
-    script.src=GAS_URL+'?callback='+cbName+'&t='+Date.now();
-    script.onerror=function(){
+    // fetch 방식으로 변경 (폰 계정 문제 우회)
+    fetch(GAS_URL+'?callback='+cbName+'&t='+Date.now())
+    .then(function(r){return r.text();})
+    .then(function(text){
+      // JSONP 응답 파싱 (callback({...}) 형태)
+      var match = text.match(/^[^(]+\((.+)\)$/s);
+      if(match){
+        var res = JSON.parse(match[1]);
+        window[cbName](res);
+      } else {
+        hideLoading();
+      }
+    })
+    .catch(function(){
       hideLoading();
       delete window[cbName];
-    };
-    document.head.appendChild(script);
+    });
   }
 }, 1000);
 </script>
