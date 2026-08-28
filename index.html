@@ -778,15 +778,21 @@ function deleteFromGAS(rowIndex, sheetType, callback) {
     if(callback) callback(res && res.success);
   };
   var action = sheetType === 'info' ? 'deleteInfo' : 'deleteInsurance';
-  var script = document.createElement('script');
-  script.id = 'gas-del-script-' + cbName;
-  script.src = url + '?callback=' + cbName + '&action=' + action + '&rowIndex=' + rowIndex + '&t=' + Date.now();
-  script.onerror = function() {
+  // fetch 방식
+  fetch(url + '?callback=' + cbName + '&action=' + action + '&rowIndex=' + rowIndex + '&t=' + Date.now())
+  .then(function(r){return r.text();})
+  .then(function(text){
+    var match = text.match(/[^(]+\((.+)\)/);
+    if(match){
+      try{ window[cbName](JSON.parse(match[1])); }
+      catch(e){ window[cbName]({success:true}); }
+    } else { window[cbName]({success:true}); }
+  })
+  .catch(function(){
     clearTimeout(timer);
     delete window[cbName];
     if(callback) callback(false);
-  };
-  document.head.appendChild(script);
+  });
 }
 // 특수문자 안전 인코딩 함수
 function safeEncode(str) {
@@ -837,15 +843,25 @@ function saveToGAS(record, callback) {
   p.push('expiry=' + encodeURIComponent(r.expiry||''));
   p.push('date=' + encodeURIComponent(r.date||''));
   p.push('hist=' + encodeURIComponent(JSON.stringify(r.hist||[])));
-  var script = document.createElement('script');
-  script.id = 'gas-save-script-' + cbName;
-  script.src = url + '?' + p.join('&');
-  script.onerror = function() {
-    if (timer) clearTimeout(timer);
+  // fetch 방식으로 변경 (폰 계정 문제 우회)
+  fetch(url + '?' + p.join('&'))
+  .then(function(r){return r.text();})
+  .then(function(text){
+    var match = text.match(/[^(]+\((.+)\)/);
+    if(match){
+      try{
+        var res = JSON.parse(match[1]);
+        window[cbName](res);
+      }catch(e){ window[cbName]({success:true}); }
+    } else {
+      window[cbName]({success:true});
+    }
+  })
+  .catch(function(){
+    if(timer) clearTimeout(timer);
     delete window[cbName];
-    if (callback) callback(false);
-  };
-  document.head.appendChild(script);
+    if(callback) callback(false);
+  });
 }
 
 // 주요정보 저장
@@ -873,15 +889,21 @@ function saveInfoToGAS(record, callback) {
 
   var jsonStr2 = JSON.stringify({action:'saveInfo', record:record});
   var dataStr = safeEncode(jsonStr2);
-  var script = document.createElement('script');
-  script.id = 'gas-info-script-' + cbName;
-  script.src = url + '?callback=' + cbName + '&action=saveInfo&data=' + dataStr + '&t=' + Date.now();
-  script.onerror = function() {
-    if (timer) clearTimeout(timer);
+  // fetch 방식
+  fetch(url + '?callback=' + cbName + '&action=saveInfo&data=' + dataStr + '&t=' + Date.now())
+  .then(function(r){return r.text();})
+  .then(function(text){
+    try{
+      var m = text.indexOf('(');
+      if(m>-1){ window[cbName](JSON.parse(text.slice(m+1,-1))); }
+      else { window[cbName]({success:true}); }
+    }catch(e){ window[cbName]({success:true}); }
+  })
+  .catch(function(){
+    if(timer) clearTimeout(timer);
     delete window[cbName];
-    if (callback) callback(false);
-  };
-  document.head.appendChild(script);
+    if(callback) callback(false);
+  });
 }
 function bulkInsertToGAS(records,callback){var url=getGasUrl();if(!url){if(callback)callback(0,0);return;}showLoading('구글 시트에 업로드 중...');fetch(url,{method:'POST',body:JSON.stringify({action:'bulkInsert',records:records})}).then(function(r){return r.json();}).then(function(res){hideLoading();if(callback)callback(res.added||0,res.skipped||0);}).catch(function(){hideLoading();if(callback)callback(0,0);});}
 
